@@ -19,19 +19,27 @@ import static java.nio.charset.StandardCharsets.UTF_8;
  */
 @Slf4j
 public final class ExtensionLoader<T> {
-
+    // 扩展对象 配置目录
     private static final String SERVICE_DIRECTORY = "META-INF/extensions/";
+
     private static final Map<Class<?>, ExtensionLoader<?>> EXTENSION_LOADERS = new ConcurrentHashMap<>();
+
+    // 存放通过配置文件 生成的扩展实例对象
     private static final Map<Class<?>, Object> EXTENSION_INSTANCES = new ConcurrentHashMap<>();
 
+    // 扩展接口的 .class 类型
     private final Class<?> type;
+
+    // 缓存实例- 存储    实例名称, 经Holder包装的实例类
     private final Map<String, Holder<Object>> cachedInstances = new ConcurrentHashMap<>();
+    //缓存类       Holder 包装的实例类
     private final Holder<Map<String, Class<?>>> cachedClasses = new Holder<>();
 
     private ExtensionLoader(Class<?> type) {
         this.type = type;
     }
 
+    // 目的是获取和拓展类对应的 ExtensionLoader
     public static <S> ExtensionLoader<S> getExtensionLoader(Class<S> type) {
         if (type == null) {
             throw new IllegalArgumentException("Extension type should not be null.");
@@ -45,7 +53,9 @@ public final class ExtensionLoader<T> {
         // firstly get from cache, if not hit, create one
         ExtensionLoader<S> extensionLoader = (ExtensionLoader<S>) EXTENSION_LOADERS.get(type);
         if (extensionLoader == null) {
+            // 如果 type 在容器内 没有扩展加载器, 则将 type.class 和 新创建的 扩展加载器加入 map 集合
             EXTENSION_LOADERS.putIfAbsent(type, new ExtensionLoader<S>(type));
+            // 然后从 map 集合中拿到刚加入的 ExtensionLoader<S>
             extensionLoader = (ExtensionLoader<S>) EXTENSION_LOADERS.get(type);
         }
         return extensionLoader;
@@ -67,7 +77,9 @@ public final class ExtensionLoader<T> {
             synchronized (holder) {
                 instance = holder.get();
                 if (instance == null) {
+                    //调用后面一系列方法进行对象的创建
                     instance = createExtension(name);
+                    // 最后设置实例化对象的地方
                     holder.set(instance);
                 }
             }
@@ -75,12 +87,15 @@ public final class ExtensionLoader<T> {
         return (T) instance;
     }
 
+    // 创建 扩展对象 存入  EXTENSION_INSTANCES
     private T createExtension(String name) {
         // load all extension classes of type T from file and get specific one by name
+        // 传入 netty 拿到 clazz = NettyRpcClient.class
         Class<?> clazz = getExtensionClasses().get(name);
         if (clazz == null) {
             throw new RuntimeException("No such extension of name " + name);
         }
+        // 拿到为空,则通过 clazz 对象创建实例,并关联存入 EXTENSION_INSTANCES 扩展实例的集合之中
         T instance = (T) EXTENSION_INSTANCES.get(clazz);
         if (instance == null) {
             try {
@@ -93,6 +108,10 @@ public final class ExtensionLoader<T> {
         return instance;
     }
 
+    /**
+     * 将存放 扩展类键值对的 Map 集合取出 如果 Holder 里面没有则创建一个新的 并且经过 loadDirectory() 方法加载
+     * 最后存入 Holder 中
+     */
     private Map<String, Class<?>> getExtensionClasses() {
         // get the loaded extension class from the cache
         Map<String, Class<?>> classes = cachedClasses.get();
@@ -111,7 +130,14 @@ public final class ExtensionLoader<T> {
         return classes;
     }
 
+    /**
+     * 加载文件夹, 对应增强扩展的配置文件夹 SERVICE_DIRECTORY = "META-INF/extensions/" 加上 想要扩展的 class 的 类型
+     * 就可以拿到对应的配置文件
+     *
+     * @param extensionClasses 拿到上面 getExtensionClasses 方法传入的 用于存放扩展类配置文件中 键值对的 Map
+     */
     private void loadDirectory(Map<String, Class<?>> extensionClasses) {
+        // META-INF/extensions/github.javaguide.remoting.transport.RpcRequestTransport
         String fileName = ExtensionLoader.SERVICE_DIRECTORY + type.getName();
         try {
             Enumeration<URL> urls;

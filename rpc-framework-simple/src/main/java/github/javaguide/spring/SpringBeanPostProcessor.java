@@ -30,8 +30,11 @@ public class SpringBeanPostProcessor implements BeanPostProcessor {
     private final ServiceProvider serviceProvider;
     private final RpcRequestTransport rpcClient;
 
+    // 空参构造 初始化 ZkServiceProviderImpl 单例
     public SpringBeanPostProcessor() {
+        // 获取 ZkServiceProviderImpl 单例对象
         this.serviceProvider = SingletonFactory.getInstance(ZkServiceProviderImpl.class);
+        // NettyRpcClient
         this.rpcClient = ExtensionLoader.getExtensionLoader(RpcRequestTransport.class).getExtension("netty");
     }
 
